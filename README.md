@@ -8,9 +8,8 @@ Sistema de pedidos para un restaurante pequeño que permite gestionar y procesar
 
 - Gestión de pedidos
 - Catálogo de productos/platos
-- Cálculo automático de totales
-- Interfaz amigable
-- [Agrega más características según tu proyecto]
+- Cálculo automático de totales y actualización del carrito
+- Interfaz amigable con el usuario
 
 ## 🛠️ Tecnologías Utilizadas
 
