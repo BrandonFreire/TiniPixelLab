@@ -54,6 +54,50 @@ body {
   font-size: 12px;
 }
 
+.brand-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.brand-top small {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: 50%;
+  display: inline-flex  ;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0px;
+  transform: translateY(-4px)
+}
+
+.brand-logo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+@media(max-width: 480px) {
+  .brand-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .brand-logo {
+    width: 28px;
+    height: 28px;
+     transform: translateY(-2px)
+  }
+}
+
 .brand h1 {
   font-size: 28px;
   line-height: 1.1;
