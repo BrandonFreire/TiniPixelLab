@@ -6,7 +6,7 @@ Este proyecto es una aplicación web de menú digital para restaurantes que perm
 
 *   **Menú Dinámico:** Visualización de productos organizados por categorías (Entradas, Platos Fuertes, Postres, Bebidas).
 *   **Carrito de Compras Flotante:** Un panel lateral deslizable que permite gestionar productos, cantidades y calcular el total automáticamente.
-*   **Notificaciones en Tiempo Real:** Mensajes de confirmación en la esquina superior derecha al interactuar con el carrito.
+*   **Notificaciones en Tiempo Real:** Mensajes de confirmación en la esquina superior izquierda al interactuar con el carrito.
 *   **Backend con Flask:** Una API robusta que maneja la persistencia de los pedidos.
 *   **Base de Datos SQLite:** Almacenamiento local de productos y pedidos realizados.
 
@@ -16,12 +16,12 @@ Este proyecto es una aplicación web de menú digital para restaurantes que perm
 
 ### 1. Frontend (`/Front` y `/CSS`)
 *   **`TiniRestaurant.html`**: Estructura principal de la aplicación. Incluye el botón flotante del carrito y el sistema de navegación lateral.
-*   **`prueba.js`**: Contiene toda la lógica del cliente:
+*   **`script.js`**: Contiene toda la lógica del cliente:
     *   Gestión del estado del carrito (memoria local).
     *   Renderizado dinámico de productos.
     *   Comunicación con la API (Fetch) para registrar pedidos.
     *   Efectos visuales de apertura y cierre del carrito.
-*   **`style.css`**: Estilos modernos con variables CSS, diseño responsivo (Grid/Flexbox) y animaciones para el carrito y notificaciones.
+*   **`style.css`**: Estilos con variables CSS, diseño responsivo (Grid/Flexbox) y animaciones para el carrito y notificaciones.
 
 ### 2. Backend (`/Back`)
 *   **`app.py`**: Servidor Flask que expone dos rutas principales:
@@ -50,7 +50,7 @@ Sigue estos pasos para poner en marcha el proyecto:
 ### Paso 1: Instalar dependencias
 Abre una terminal en la raíz del proyecto y ejecuta:
 ```bash
-pip install flask flask-cors
+pip install -r requirements.txt
 ```
 
 ### Paso 2: Inicializar la Base de Datos (Opcional si ya existe)
@@ -77,4 +77,3 @@ Simplemente abre el archivo **`Front/TiniRestaurant.html`** en tu navegador favo
 *   **Imágenes:** Las imágenes de los productos se cargan dinámicamente desde Unsplash para asegurar una estética moderna sin ocupar espacio en disco.
 
 ---
-Desarrollado por **Gemini CLI** para **Tini Pixel Lab**.
