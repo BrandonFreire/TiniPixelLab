@@ -1,79 +1,91 @@
-# Tini Restaurant - Menú Digital con Carrito de Compras
+# Tini Restaurant - Menú digital
 
-Este proyecto es una aplicación web de menú digital para restaurantes que permite a los usuarios explorar productos por categorías, agregarlos a un carrito de compras dinámico y confirmar pedidos que se almacenan en una base de datos SQLite.
+Aplicación web para un restaurante pequeño desarrollada por el equipo **Tini Pixel Lab**. Permite ver productos por categoría, agregar productos al carrito, confirmar pedidos y administrarlos desde un panel local.
 
-## 🚀 Características Principales
+## Funcionalidades
 
-*   **Menú Dinámico:** Visualización de productos organizados por categorías (Entradas, Platos Fuertes, Postres, Bebidas).
-*   **Carrito de Compras Flotante:** Un panel lateral deslizable que permite gestionar productos, cantidades y calcular el total automáticamente.
-*   **Notificaciones en Tiempo Real:** Mensajes de confirmación en la esquina superior izquierda al interactuar con el carrito.
-*   **Backend con Flask:** Una API robusta que maneja la persistencia de los pedidos.
-*   **Base de Datos SQLite:** Almacenamiento local de productos y pedidos realizados.
+- Menú dinámico con categorías: entradas, platos fuertes, postres y bebidas.
+- Carrito lateral con cantidades, total y confirmación de pedido.
+- Datos básicos de entrega para pedidos a domicilio.
+- Consulta de estado por número de pedido.
+- Persistencia local con SQLite.
+- Panel de administrador con:
+  - listado de pedidos recibidos;
+  - cambio y guardado del estado del pedido;
+  - listado, creación, edición y eliminación de productos.
+- Datos iniciales de productos y pedidos de prueba para demostración.
 
----
+## Estructura
 
-## 🛠️ Estructura del Proyecto
+- `Front/TiniRestaurant.html`: pantalla principal del menú y carrito.
+- `Front/login.html`: acceso al panel de administración.
+- `Front/admin.html`: panel administrativo.
+- `Front/script.js`: lógica del menú y carrito.
+- `Front/admin.js`: lógica de pedidos y productos del administrador.
+- `CSS/style.css`: estilos compartidos.
+- `Back/app.py`: API Flask.
+- `Back/create_db.py`: crea la base SQLite y carga datos de prueba.
 
-### 1. Frontend (`/Front` y `/CSS`)
-*   **`TiniRestaurant.html`**: Estructura principal de la aplicación. Incluye el botón flotante del carrito y el sistema de navegación lateral.
-*   **`script.js`**: Contiene toda la lógica del cliente:
-    *   Gestión del estado del carrito (memoria local).
-    *   Renderizado dinámico de productos.
-    *   Comunicación con la API (Fetch) para registrar pedidos.
-    *   Efectos visuales de apertura y cierre del carrito.
-*   **`style.css`**: Estilos con variables CSS, diseño responsivo (Grid/Flexbox) y animaciones para el carrito y notificaciones.
+## Requisitos
 
-### 2. Backend (`/Back`)
-*   **`app.py`**: Servidor Flask que expone dos rutas principales:
-    *   `GET /api/productos`: Obtiene la lista de productos disponibles.
-    *   `POST /api/pedido`: Recibe y guarda los pedidos en la base de datos.
-*   **`create_db.py`**: Script de utilidad para inicializar la base de datos `tini.db` con el esquema necesario y productos de ejemplo.
-*   **`tini.db`**: Base de datos relacional con tablas para `productos`, `pedidos` y `pedido_items`.
+- Python 3.10 o superior.
+- Dependencias de `requirements.txt`.
 
----
+Instalación:
 
-## 📋 Requisitos del Sistema
-
-Para ejecutar este proyecto, necesitas tener instalado:
-
-1.  **Python 3.x** (Se recomienda 3.10 o superior).
-2.  **Librerías de Python:**
-    *   `Flask`: Para el servidor web.
-    *   `Flask-CORS`: Para permitir que el HTML se comunique con el servidor.
-
----
-
-## ⚙️ Instalación y Ejecución
-
-Sigue estos pasos para poner en marcha el proyecto:
-
-### Paso 1: Instalar dependencias
-Abre una terminal en la raíz del proyecto y ejecuta:
 ```bash
 pip install -r requirements.txt
 ```
 
-### Paso 2: Inicializar la Base de Datos (Opcional si ya existe)
-Si quieres resetear los productos o crear la base de datos desde cero:
+## Ejecución local
+
+Opción rápida en Windows:
+
+```bat
+start.bat
+```
+
+También puedes ejecutar paso a paso:
+
 ```bash
 python Back/create_db.py
-```
-
-### Paso 3: Iniciar el Servidor Backend
-Ejecuta el servidor Flask:
-```bash
 python Back/app.py
 ```
-*El servidor se iniciará en `http://localhost:5000`. Mantén esta terminal abierta.*
 
-### Paso 4: Abrir la Aplicación
-Simplemente abre el archivo **`Front/TiniRestaurant.html`** en tu navegador favorito.
+Luego abre:
 
----
+- Menú: `Front/TiniRestaurant.html`
+- Admin: `Front/login.html`
 
-## 📝 Notas de Uso
-*   **Confirmación de Pedidos:** Al hacer clic en "Confirmar Pedido", los datos se enviarán al servidor y verás un mensaje con el ID del pedido generado.
-*   **Modo Demo:** Si el servidor no está encendido, el carrito seguirá funcionando visualmente, pero mostrará un error al intentar guardar el pedido.
-*   **Imágenes:** Las imágenes de los productos se cargan dinámicamente desde Unsplash para asegurar una estética moderna sin ocupar espacio en disco.
+Credenciales del panel admin:
 
----
+- Usuario: `admin`
+- Contraseña: `admin`
+
+La API corre en:
+
+```text
+http://localhost:5000
+```
+
+## Endpoints principales
+
+- `GET /api/productos`: productos disponibles para el menú.
+- `GET /api/productos?admin=true`: todos los productos para administración.
+- `POST /api/productos`: crear producto.
+- `PUT /api/productos/<id>`: editar producto.
+- `DELETE /api/productos/<id>`: eliminar producto.
+- `POST /api/pedido`: registrar pedido desde el carrito.
+- `GET /api/pedidos`: listar pedidos recibidos.
+- `GET /api/pedidos/<id>`: consultar el estado y detalle de un pedido.
+- `PUT /api/pedidos/<id>/estado`: actualizar estado de un pedido.
+
+Estados disponibles:
+
+```text
+Pendiente, En preparación, Completado, Entregado, Cancelado
+```
+
+## Notas para presentación
+
+`Back/tini.db` es una base local generada. Si no existe, `Back/app.py` y `Back/create_db.py` pueden recrearla con productos y pedidos de prueba. Esto permite mover el proyecto y ejecutarlo en otra máquina sin depender de datos manuales previos.

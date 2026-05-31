@@ -44,12 +44,23 @@
           <p id="heroText">Explora nuestro menú completo con todos los productos disponibles. Cada producto muestra nombre y precio.</p>
           <div class="hero-actions">
             <button class="btn primary" id="verMenuBtn">📋 Ver menú completo</button>
-            <button class="btn secondary">Promociones</button>
           </div>
         </div>
         <div class="hero-card">
           <img id="heroImage" src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80" alt="Comida destacada" />
         </div>
+      </section>
+
+      <section class="status-check">
+        <div>
+          <h3>Consulta tu pedido</h3>
+          <p>Ingresa el número de pedido para ver su estado actual.</p>
+        </div>
+        <div class="status-check__form">
+          <input type="number" id="pedidoConsultaId" min="1" placeholder="Nro. de pedido">
+          <button class="btn primary" id="consultarPedidoBtn">Consultar</button>
+        </div>
+        <div id="pedidoEstadoResultado" class="status-result" hidden></div>
       </section>
 
       <div class="section-head">
@@ -78,6 +89,13 @@
       </div>
 
       <div class="cart-footer">
+        <div class="delivery-form">
+          <h4>Datos de entrega</h4>
+          <input type="text" id="clienteNombre" placeholder="Nombre completo">
+          <input type="tel" id="clienteTelefono" placeholder="Teléfono">
+          <textarea id="clienteDireccion" placeholder="Dirección de entrega"></textarea>
+          <input type="text" id="clienteReferencia" placeholder="Referencia (opcional)">
+        </div>
         <div class="cart-total">
           <span>Total</span>
           <span id="cartTotal">$0.00</span>

@@ -1,7 +1,5 @@
-// ============================================
-// BASE DE DATOS DEL MENÚ (DINÁMICA DESDE API)
-// ============================================
 let productosDisponibles = [];
+const API_URL = 'http://localhost:5000/api';
 let menuData = {
   todos: [],
   entradas: [],
@@ -12,7 +10,7 @@ let menuData = {
 
 async function cargarProductosDesdeAPI() {
   try {
-    const response = await fetch('http://localhost:5000/api/productos');
+    const response = await fetch(`${API_URL}/productos`);
     productosDisponibles = await response.json();
     
     menuData = {
@@ -23,21 +21,14 @@ async function cargarProductosDesdeAPI() {
       bebidas: productosDisponibles.filter(p => p.categoria === "bebidas" && p.disponible)
     };
     
-    cambiarCategoria('todos'); // Recargar vista con datos frescos
+    cambiarCategoria('todos');
   } catch (error) {
     console.error('Error al cargar productos:', error);
     mostrarNotificacion('❌ Error al conectar con el servidor');
   }
 }
 
-// ============================================
-// ESTADO DEL CARRITO
-// ============================================
 let carrito = [];
-
-// ============================================
-// FUNCIONES DEL CARRITO
-// ============================================
 
 function agregarAlCarrito(id) {
   const producto = productosDisponibles.find(p => p.id === id);
@@ -72,6 +63,15 @@ function eliminarDelCarrito(id) {
 
 function calcularTotal() {
   return carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+}
+
+function escapeHTML(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function actualizarCarritoUI() {
@@ -115,9 +115,21 @@ function actualizarCarritoUI() {
 async function confirmarPedido() {
   if (carrito.length === 0) return;
 
+  const clienteNombre = document.getElementById('clienteNombre').value.trim();
+  const clienteTelefono = document.getElementById('clienteTelefono').value.trim();
+  const clienteDireccion = document.getElementById('clienteDireccion').value.trim();
+  const clienteReferencia = document.getElementById('clienteReferencia').value.trim();
+
+  if (!clienteNombre || !clienteTelefono || !clienteDireccion) {
+    mostrarNotificacion('Completa nombre, teléfono y dirección');
+    return;
+  }
+
   const pedidoData = {
-    cliente_nombre: "Usuario Demo",
-    mesa: "42",
+    cliente_nombre: clienteNombre,
+    telefono: clienteTelefono,
+    direccion: clienteDireccion,
+    referencia: clienteReferencia,
     items: carrito.map(item => ({
       id: item.id,
       cantidad: item.cantidad,
@@ -127,7 +139,7 @@ async function confirmarPedido() {
   };
 
   try {
-    const response = await fetch('http://localhost:5000/api/pedido', {
+    const response = await fetch(`${API_URL}/pedido`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pedidoData)
@@ -136,6 +148,12 @@ async function confirmarPedido() {
     if (response.ok) {
       const result = await response.json();
       mostrarNotificacion(`🎉 Pedido realizado con éxito! ID: ${result.pedido_id}`);
+      mostrarResultadoPedido(result.pedido_id, 'Pendiente');
+      document.getElementById('pedidoConsultaId').value = result.pedido_id;
+      document.getElementById('clienteNombre').value = '';
+      document.getElementById('clienteTelefono').value = '';
+      document.getElementById('clienteDireccion').value = '';
+      document.getElementById('clienteReferencia').value = '';
       carrito = [];
       actualizarCarritoUI();
     } else {
@@ -147,9 +165,42 @@ async function confirmarPedido() {
   }
 }
 
-// ============================================
-// FUNCIONES DE INTERFAZ ORIGINALES (MEJORADAS)
-// ============================================
+function mostrarResultadoPedido(id, estado, direccion = '') {
+  const resultContainer = document.getElementById('pedidoEstadoResultado');
+  resultContainer.innerHTML = `
+    <strong>Pedido #${id}</strong><br>
+    Estado actual: <strong>${escapeHTML(estado)}</strong>
+    ${direccion ? `<br><small>Entrega: ${escapeHTML(direccion)}</small>` : ''}
+  `;
+  resultContainer.hidden = false;
+}
+
+async function consultarEstadoPedido() {
+  const pedidoId = document.getElementById('pedidoConsultaId').value.trim();
+  const resultContainer = document.getElementById('pedidoEstadoResultado');
+
+  if (!pedidoId) {
+    resultContainer.textContent = 'Ingresa un número de pedido.';
+    resultContainer.hidden = false;
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/pedidos/${pedidoId}`);
+    if (!response.ok) {
+      resultContainer.textContent = 'No se encontró un pedido con ese número.';
+      resultContainer.hidden = false;
+      return;
+    }
+
+    const pedido = await response.json();
+    mostrarResultadoPedido(pedido.id, pedido.estado, pedido.direccion || '');
+  } catch (error) {
+    console.error('Error:', error);
+    resultContainer.textContent = 'No se pudo consultar el estado del pedido.';
+    resultContainer.hidden = false;
+  }
+}
 
 function mostrarNotificacion(mensaje) {
   const existing = document.querySelector('.toast');
@@ -262,10 +313,6 @@ function cambiarCategoria(categoria) {
   renderizarProductos(categoria);
 }
 
-// ============================================
-// LÓGICA DE APERTURA/CIERRE DEL CARRITO
-// ============================================
-
 function toggleCarrito() {
   const sidebar = document.getElementById('cartSidebar');
   const overlay = document.getElementById('cartOverlay');
@@ -273,12 +320,7 @@ function toggleCarrito() {
   overlay.classList.toggle('show');
 }
 
-// ============================================
-// INICIALIZACIÓN
-// ============================================
-
 document.addEventListener('DOMContentLoaded', () => {
-  // Configurar botones del sidebar
   const sidebarButtons = document.querySelectorAll('#sidebarNav button');
   sidebarButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -286,19 +328,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Configurar botón "Ver menú" del hero
   const verMenuBtn = document.getElementById('verMenuBtn');
   if (verMenuBtn) {
     verMenuBtn.addEventListener('click', () => cambiarCategoria('todos'));
   }
 
-  // Configurar botón de confirmar pedido
   const confirmBtn = document.getElementById('confirmOrderBtn');
   if (confirmBtn) {
     confirmBtn.addEventListener('click', confirmarPedido);
   }
 
-  // Configurar toggle del carrito
+  const consultarPedidoBtn = document.getElementById('consultarPedidoBtn');
+  if (consultarPedidoBtn) {
+    consultarPedidoBtn.addEventListener('click', consultarEstadoPedido);
+  }
+
   const openCartBtn = document.getElementById('openCartBtn');
   const closeCartBtn = document.getElementById('closeCartBtn');
   const cartOverlay = document.getElementById('cartOverlay');
@@ -307,6 +351,5 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closeCartBtn) closeCartBtn.addEventListener('click', toggleCarrito);
   if (cartOverlay) cartOverlay.addEventListener('click', toggleCarrito);
 
-  // Cargar menú desde API al inicio
   cargarProductosDesdeAPI();
 });

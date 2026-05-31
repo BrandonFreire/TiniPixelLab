@@ -1,139 +1,273 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import sqlite3
 from pathlib import Path
+import sqlite3
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
+from create_db import create_db, seed_orders, seed_products
 
 app = Flask(__name__)
 CORS(app)
 
 DB_PATH = Path(__file__).resolve().parent / "tini.db"
+ESTADOS_PEDIDO = ("Pendiente", "En preparación", "Completado", "Entregado", "Cancelado")
+
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
-@app.route('/api/productos', methods=['GET'])
+
+def inicializar_datos_si_hacen_falta():
+    create_db()
+    conn = get_db_connection()
+    productos_count = conn.execute("SELECT COUNT(*) FROM productos").fetchone()[0]
+    pedidos_count = conn.execute("SELECT COUNT(*) FROM pedidos").fetchone()[0]
+    conn.close()
+
+    if productos_count == 0:
+        seed_products()
+    if pedidos_count == 0:
+        seed_orders()
+
+
+def producto_desde_request(data):
+    campos_obligatorios = ("nombre", "precio", "categoria")
+    faltantes = [campo for campo in campos_obligatorios if not data.get(campo)]
+    if faltantes:
+        return None, f"Faltan campos obligatorios: {', '.join(faltantes)}"
+
+    try:
+        precio = float(data["precio"])
+    except (TypeError, ValueError):
+        return None, "El precio debe ser un número válido"
+
+    if precio <= 0:
+        return None, "El precio debe ser mayor a 0"
+
+    return {
+        "nombre": data["nombre"].strip(),
+        "precio": precio,
+        "descripcion": data.get("descripcion", "").strip(),
+        "imagen": data.get("imagen", "").strip(),
+        "categoria": data["categoria"],
+        "disponible": 1 if data.get("disponible", 1) else 0,
+    }, None
+
+
+def obtener_pedido_por_id(conn, pedido_id):
+    pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if not pedido:
+        return None
+
+    pedido_dict = dict(pedido)
+    items = conn.execute(
+        """
+        SELECT
+            pi.id,
+            pi.pedido_id,
+            pi.producto_id,
+            pi.cantidad,
+            pi.precio_unitario,
+            COALESCE(p.nombre, 'Producto eliminado') AS nombre
+        FROM pedido_items pi
+        LEFT JOIN productos p ON pi.producto_id = p.id
+        WHERE pi.pedido_id = ?
+        """,
+        (pedido_id,),
+    ).fetchall()
+    pedido_dict["items"] = [dict(item) for item in items]
+    return pedido_dict
+
+
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/productos", methods=["GET"])
 def get_productos():
     conn = get_db_connection()
-    # If admin=true is passed, get all products including unavailable ones
-    admin = request.args.get('admin') == 'true'
-    if admin:
-        productos = conn.execute('SELECT * FROM productos').fetchall()
-    else:
-        productos = conn.execute('SELECT * FROM productos WHERE disponible = 1').fetchall()
+    admin = request.args.get("admin") == "true"
+    consulta = "SELECT * FROM productos ORDER BY categoria, nombre"
+    if not admin:
+        consulta = "SELECT * FROM productos WHERE disponible = 1 ORDER BY categoria, nombre"
+    productos = conn.execute(consulta).fetchall()
     conn.close()
     return jsonify([dict(row) for row in productos])
 
-@app.route('/api/productos', methods=['POST'])
+
+@app.route("/api/productos", methods=["POST"])
 def crear_producto():
-    data = request.json
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO productos (nombre, precio, descripcion, imagen, categoria, disponible) VALUES (?, ?, ?, ?, ?, ?)",
-            (data['nombre'], data['precio'], data.get('descripcion', ''), data.get('imagen', ''), data['categoria'], data.get('disponible', 1))
-        )
-        conn.commit()
-        new_id = cur.lastrowid
-        conn.close()
-        return jsonify({"mensaje": "Producto creado", "id": new_id}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    data = request.get_json(silent=True) or {}
+    producto, error = producto_desde_request(data)
+    if error:
+        return jsonify({"error": error}), 400
 
-@app.route('/api/productos/<int:id>', methods=['PUT'])
-def actualizar_producto(id):
-    data = request.json
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "UPDATE productos SET nombre=?, precio=?, descripcion=?, imagen=?, categoria=?, disponible=? WHERE id=?",
-            (data['nombre'], data['precio'], data.get('descripcion', ''), data.get('imagen', ''), data['categoria'], data.get('disponible', 1), id)
-        )
-        conn.commit()
-        conn.close()
-        return jsonify({"mensaje": "Producto actualizado"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO productos (nombre, precio, descripcion, imagen, categoria, disponible)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            producto["nombre"],
+            producto["precio"],
+            producto["descripcion"],
+            producto["imagen"],
+            producto["categoria"],
+            producto["disponible"],
+        ),
+    )
+    conn.commit()
+    producto_id = cur.lastrowid
+    conn.close()
+    return jsonify({"mensaje": "Producto creado", "id": producto_id}), 201
 
-@app.route('/api/productos/<int:id>', methods=['DELETE'])
-def eliminar_producto(id):
-    try:
-        conn = get_db_connection()
-        conn.execute("DELETE FROM productos WHERE id=?", (id,))
-        conn.commit()
-        conn.close()
-        return jsonify({"mensaje": "Producto eliminado"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
-@app.route('/api/pedidos', methods=['GET'])
+@app.route("/api/productos/<int:producto_id>", methods=["PUT"])
+def actualizar_producto(producto_id):
+    data = request.get_json(silent=True) or {}
+    producto, error = producto_desde_request(data)
+    if error:
+        return jsonify({"error": error}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE productos
+        SET nombre = ?, precio = ?, descripcion = ?, imagen = ?, categoria = ?, disponible = ?
+        WHERE id = ?
+        """,
+        (
+            producto["nombre"],
+            producto["precio"],
+            producto["descripcion"],
+            producto["imagen"],
+            producto["categoria"],
+            producto["disponible"],
+            producto_id,
+        ),
+    )
+    conn.commit()
+    actualizado = cur.rowcount
+    conn.close()
+
+    if actualizado == 0:
+        return jsonify({"error": "Producto no encontrado"}), 404
+    return jsonify({"mensaje": "Producto actualizado"})
+
+
+@app.route("/api/productos/<int:producto_id>", methods=["DELETE"])
+def eliminar_producto(producto_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM productos WHERE id = ?", (producto_id,))
+    conn.commit()
+    eliminado = cur.rowcount
+    conn.close()
+
+    if eliminado == 0:
+        return jsonify({"error": "Producto no encontrado"}), 404
+    return jsonify({"mensaje": "Producto eliminado"})
+
+
+@app.route("/api/pedidos", methods=["GET"])
 def get_pedidos():
     conn = get_db_connection()
-    pedidos = conn.execute('SELECT * FROM pedidos ORDER BY creado_at DESC').fetchall()
-    result = []
+    pedidos = conn.execute("SELECT * FROM pedidos ORDER BY creado_at DESC, id DESC").fetchall()
+    resultado = []
+
     for pedido in pedidos:
-        p_dict = dict(pedido)
-        items = conn.execute('''
-            SELECT pi.*, p.nombre 
-            FROM pedido_items pi 
-            JOIN productos p ON pi.producto_id = p.id 
-            WHERE pi.pedido_id = ?
-        ''', (p_dict['id'],)).fetchall()
-        p_dict['items'] = [dict(item) for item in items]
-        result.append(p_dict)
+        resultado.append(obtener_pedido_por_id(conn, pedido["id"]))
+
     conn.close()
-    return jsonify(result)
+    return jsonify(resultado)
 
-@app.route('/api/pedidos/<int:id>/estado', methods=['PUT'])
-def actualizar_estado_pedido(id):
-    data = request.json
-    try:
-        conn = get_db_connection()
-        conn.execute("UPDATE pedidos SET estado=? WHERE id=?", (data['estado'], id))
-        conn.commit()
-        conn.close()
-        return jsonify({"mensaje": "Estado de pedido actualizado"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
-@app.route('/api/pedido', methods=['POST'])
+@app.route("/api/pedidos/<int:pedido_id>", methods=["GET"])
+def get_pedido(pedido_id):
+    conn = get_db_connection()
+    pedido = obtener_pedido_por_id(conn, pedido_id)
+    conn.close()
+
+    if not pedido:
+        return jsonify({"error": "Pedido no encontrado"}), 404
+    return jsonify(pedido)
+
+
+@app.route("/api/pedidos/<int:pedido_id>/estado", methods=["PUT"])
+def actualizar_estado_pedido(pedido_id):
+    data = request.get_json(silent=True) or {}
+    nuevo_estado = data.get("estado")
+
+    if nuevo_estado not in ESTADOS_PEDIDO:
+        return jsonify({"error": "Estado no permitido", "estados_permitidos": ESTADOS_PEDIDO}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (nuevo_estado, pedido_id))
+    conn.commit()
+    actualizado = cur.rowcount
+    conn.close()
+
+    if actualizado == 0:
+        return jsonify({"error": "Pedido no encontrado"}), 404
+    return jsonify({"mensaje": "Estado de pedido actualizado", "estado": nuevo_estado})
+
+
+@app.route("/api/pedido", methods=["POST"])
 def crear_pedido():
-    data = request.json
-    # data = { "cliente_nombre": "...", "mesa": "...", "items": [{"id": 1, "cantidad": 2, "precio": 5.90}, ...], "total": 11.80 }
-    
-    if not data or 'items' not in data or not data['items']:
+    data = request.get_json(silent=True) or {}
+
+    if not data.get("items"):
         return jsonify({"error": "Pedido vacío"}), 400
 
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Insertar pedido
-        cur.execute(
-            "INSERT INTO pedidos (cliente_nombre, mesa, total, estado) VALUES (?, ?, ?, ?)",
-            (data.get('cliente_nombre', 'Cliente'), data.get('mesa', '1'), data['total'], 'Pendiente')
-        )
-        pedido_id = cur.lastrowid
-        
-        # Insertar items del pedido
-        for item in data['items']:
-            cur.execute(
-                "INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)",
-                (pedido_id, item['id'], item['cantidad'], item['precio'])
-            )
-        
-        conn.commit()
-        conn.close()
-        
-        return jsonify({
-            "mensaje": "Pedido realizado con éxito",
-            "pedido_id": pedido_id
-        }), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    cliente_nombre = data.get("cliente_nombre", "").strip()
+    telefono = data.get("telefono", "").strip()
+    direccion = data.get("direccion", "").strip()
+    referencia = data.get("referencia", "").strip()
 
-if __name__ == '__main__':
+    if not cliente_nombre or not telefono or not direccion:
+        return jsonify({"error": "Nombre, teléfono y dirección son obligatorios"}), 400
+
+    try:
+        total = float(data["total"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "Total inválido"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        INSERT INTO pedidos
+        (cliente_nombre, mesa, telefono, direccion, referencia, total, estado)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (cliente_nombre, "Domicilio", telefono, direccion, referencia, total, "Pendiente"),
+    )
+    pedido_id = cur.lastrowid
+
+    for item in data["items"]:
+        cur.execute(
+            """
+            INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario)
+            VALUES (?, ?, ?, ?)
+            """,
+            (pedido_id, item["id"], item["cantidad"], item["precio"]),
+        )
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"mensaje": "Pedido realizado con éxito", "pedido_id": pedido_id}), 201
+
+
+inicializar_datos_si_hacen_falta()
+
+if __name__ == "__main__":
     app.run(debug=True, port=5000)

@@ -183,6 +183,35 @@ body {
   border-top: 2px dashed var(--soft);
 }
 
+.delivery-form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 18px;
+}
+
+.delivery-form h4 {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.delivery-form input,
+.delivery-form textarea,
+.status-check input {
+  width: 100%;
+  border: 1px solid #ded7ef;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--text);
+  background: var(--white);
+}
+
+.delivery-form textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
 .cart-total {
   display: flex;
   justify-content: space-between;
@@ -341,8 +370,18 @@ body {
   transition: 0.2s ease;
 }
 
+.admin-link {
+  color: var(--white);
+  text-decoration: none;
+  padding: 14px 16px;
+  border-radius: 16px;
+  text-align: left;
+  transition: 0.2s ease;
+}
+
 .nav button:hover,
-.nav button.active {
+.nav button.active,
+.admin-link:hover {
   background: rgba(255,255,255,0.16);
 }
 
@@ -562,6 +601,56 @@ body {
   grid-column: span 2;
 }
 
+.status-check {
+  margin-bottom: 22px;
+  background: var(--white);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 10px 26px rgba(24, 15, 64, 0.06);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.status-check h3 {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.status-check p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.status-check__form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.status-check__form input {
+  width: 180px;
+}
+
+.status-check .btn.primary {
+  background: var(--primary);
+  color: var(--white);
+}
+
+.status-result {
+  grid-column: 1 / -1;
+  background: #f8f7fc;
+  border-radius: 14px;
+  padding: 14px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.status-result strong {
+  color: var(--deep);
+}
+
 .toast {
   position: fixed;
   top: 24px;
@@ -589,8 +678,18 @@ body {
 
 @media (max-width: 1050px) {
   .hero,
-  .product-card {
+  .product-card,
+  .status-check {
     grid-template-columns: 1fr;
+  }
+
+  .status-check__form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .status-check__form input {
+    width: 100%;
   }
 
   .products {

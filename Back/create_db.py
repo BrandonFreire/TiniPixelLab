@@ -1,4 +1,3 @@
-# Back/create_db.py
 import sqlite3
 from pathlib import Path
 
@@ -19,10 +18,13 @@ CREATE TABLE IF NOT EXISTS pedidos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cliente_nombre TEXT,
     mesa TEXT,
+    telefono TEXT,
+    direccion TEXT,
+    referencia TEXT,
     total REAL,
     estado TEXT,
     creado_at TEXT DEFAULT (datetime('now'))
-);  
+);
 
 CREATE TABLE IF NOT EXISTS pedido_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,28 +52,139 @@ SAMPLE_PRODUCTS = [
     (12, "Limonada de mora", 2.75, "Bebida fría de mora con un toque cítrico y hielo.", "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80", "bebidas", 1),
     (13, "Milkshake de fresa", 3.70, "Batido espeso de fresa con crema y salsa dulce.", "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80", "bebidas", 1),
     (14, "Café americano", 2.00, "Café de origen colombiano recién preparado.", "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80", "bebidas", 1),
-    (15, "Jugo de naranja natural", 2.50, "Jugo recién exprimido sin conservantes.", "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=800&q=80", "bebidas", 1)
+    (15, "Jugo de naranja natural", 2.50, "Jugo recién exprimido sin conservantes.", "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=800&q=80", "bebidas", 1),
 ]
+
+SAMPLE_ORDERS = [
+    {
+        "cliente_nombre": "Cliente Demo 1",
+        "mesa": "Domicilio",
+        "telefono": "0991112222",
+        "direccion": "Av. Principal 123",
+        "referencia": "Casa de portón negro",
+        "estado": "Pendiente",
+        "items": [(5, 2, 8.40), (12, 2, 2.75)],
+    },
+    {
+        "cliente_nombre": "Cliente Demo 2",
+        "mesa": "Domicilio",
+        "telefono": "0993334444",
+        "direccion": "Calle Los Álamos y Norte",
+        "referencia": "Junto a la farmacia",
+        "estado": "En preparación",
+        "items": [(4, 1, 11.90), (8, 1, 4.80)],
+    },
+    {
+        "cliente_nombre": "Cliente Demo 3",
+        "mesa": "Domicilio",
+        "telefono": "0995556666",
+        "direccion": "Conjunto Jardines, casa 7",
+        "referencia": "Garita principal",
+        "estado": "Completado",
+        "items": [(1, 1, 5.90), (14, 2, 2.00)],
+    },
+]
+
+PEDIDOS_EXTRA_COLUMNS = {
+    "telefono": "TEXT",
+    "direccion": "TEXT",
+    "referencia": "TEXT",
+}
+
+
+def migrate_db(conn):
+    cur = conn.cursor()
+    existing_columns = {
+        row[1] for row in cur.execute("PRAGMA table_info(pedidos)").fetchall()
+    }
+
+    for column, column_type in PEDIDOS_EXTRA_COLUMNS.items():
+        if column not in existing_columns:
+            cur.execute(f"ALTER TABLE pedidos ADD COLUMN {column} {column_type}")
+
+    cur.execute(
+        """
+        UPDATE pedidos
+        SET estado = 'Completado'
+        WHERE estado NOT IN ('Pendiente', 'En preparación', 'Completado', 'Entregado', 'Cancelado')
+        """
+    )
+
 
 def create_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.executescript(SCHEMA)
+    migrate_db(conn)
     conn.commit()
     conn.close()
-    print("Base de datos creada en:", DB_PATH)
+    print("Base de datos lista en:", DB_PATH)
+
 
 def seed_products(products=SAMPLE_PRODUCTS):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.executemany(
-        "INSERT OR REPLACE INTO productos (id, nombre, precio, descripcion, imagen, categoria, disponible) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        products
+        """
+        INSERT OR REPLACE INTO productos
+        (id, nombre, precio, descripcion, imagen, categoria, disponible)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        products,
     )
     conn.commit()
     conn.close()
-    print(f"Insertados {len(products)} productos de ejemplo")
+    print(f"Productos de ejemplo disponibles: {len(products)}")
+
+
+def seed_orders(orders=SAMPLE_ORDERS):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    for order in orders:
+        total = sum(cantidad * precio for _, cantidad, precio in order["items"])
+        cur.execute(
+            """
+            INSERT INTO pedidos
+            (cliente_nombre, mesa, telefono, direccion, referencia, total, estado)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                order["cliente_nombre"],
+                order["mesa"],
+                order["telefono"],
+                order["direccion"],
+                order["referencia"],
+                total,
+                order["estado"],
+            ),
+        )
+        pedido_id = cur.lastrowid
+        cur.executemany(
+            """
+            INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario)
+            VALUES (?, ?, ?, ?)
+            """,
+            [(pedido_id, producto_id, cantidad, precio) for producto_id, cantidad, precio in order["items"]],
+        )
+
+    conn.commit()
+    conn.close()
+    print(f"Pedidos de prueba insertados: {len(orders)}")
+
+
+def table_count(table_name):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    count = cur.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+    conn.close()
+    return count
+
 
 if __name__ == "__main__":
     create_db()
     seed_products()
+    if table_count("pedidos") == 0:
+        seed_orders()
+    else:
+        print("La base ya tiene pedidos; no se insertaron pedidos de prueba duplicados.")
