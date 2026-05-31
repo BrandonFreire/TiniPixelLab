@@ -1,31 +1,34 @@
 // ============================================
-// BASE DE DATOS DEL MENÚ (LOCAL)
+// BASE DE DATOS DEL MENÚ (DINÁMICA DESDE API)
 // ============================================
-const productosDisponibles = [
-  { id: 1, nombre: "Bruschetta italiana", precio: 5.90, descripcion: "Pan tostado con tomate, albahaca y queso fresco.", disponible: true, imagen: "https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?auto=format&fit=crop&w=800&q=80", categoria: "entradas" },
-  { id: 2, nombre: "Nachos supremos", precio: 6.20, descripcion: "Nachos con queso, salsa de la casa y jalapeños.", disponible: true, imagen: "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?auto=format&fit=crop&w=800&q=80", categoria: "entradas" },
-  { id: 3, nombre: "Alitas BBQ", precio: 7.10, descripcion: "Alitas bañadas en salsa BBQ con toque ahumado.", disponible: true, imagen: "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=800&q=80", categoria: "entradas" },
-  { id: 4, nombre: "Lomo en salsa", precio: 11.90, descripcion: "Lomo jugoso acompañado de papas y vegetales.", disponible: true, imagen: "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=800&q=80", categoria: "platos-fuertes" },
-  { id: 5, nombre: "Hamburguesa especial", precio: 8.40, descripcion: "Hamburguesa artesanal con queso, tocino y papas.", disponible: true, imagen: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80", categoria: "platos-fuertes" },
-  { id: 6, nombre: "Pasta cremosa", precio: 9.50, descripcion: "Pasta artesanal con salsa cremosa y toque de hierbas.", disponible: true, imagen: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=800&q=80", categoria: "platos-fuertes" },
-  { id: 7, nombre: "Pescado a la plancha", precio: 10.90, descripcion: "Filete de pescado con ensalada fresca.", disponible: true, imagen: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=800&q=80", categoria: "platos-fuertes" },
-  { id: 8, nombre: "Cheesecake de frutos rojos", precio: 4.80, descripcion: "Postre suave y fresco con cobertura de frutos rojos.", disponible: true, imagen: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=800&q=80", categoria: "postres" },
-  { id: 9, nombre: "Brownie tibio", precio: 3.95, descripcion: "Brownie de chocolate con textura suave y centro húmedo.", disponible: true, imagen: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=800&q=80", categoria: "postres" },
-  { id: 10, nombre: "Helado artesanal", precio: 2.80, descripcion: "Helado servido en copa con toppings de fruta.", disponible: true, imagen: "https://images.unsplash.com/photo-1560008581-09826d1de69e?auto=format&fit=crop&w=800&q=80", categoria: "postres" },
-  { id: 11, nombre: "Tarta de frutos rojos", precio: 4.50, descripcion: "Base crujiente con crema pastelera y frutos rojos.", disponible: true, imagen: "https://images.unsplash.com/photo-1464306076886-da185f6a9d05?auto=format&fit=crop&w=800&q=80", categoria: "postres" },
-  { id: 12, nombre: "Limonada de mora", precio: 2.75, descripcion: "Bebida fría de mora con un toque cítrico y hielo.", disponible: true, imagen: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80", categoria: "bebidas" },
-  { id: 13, nombre: "Milkshake de fresa", precio: 3.70, descripcion: "Batido espeso de fresa con crema y salsa dulce.", disponible: true, imagen: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80", categoria: "bebidas" },
-  { id: 14, nombre: "Café americano", precio: 2.00, descripcion: "Café de origen colombiano recién preparado.", disponible: true, imagen: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80", categoria: "bebidas" },
-  { id: 15, nombre: "Jugo de naranja natural", precio: 2.50, descripcion: "Jugo recién exprimido sin conservantes.", disponible: true, imagen: "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=800&q=80", categoria: "bebidas" }
-];
-
-const menuData = {
-  todos: productosDisponibles.filter(p => p.disponible),
-  entradas: productosDisponibles.filter(p => p.categoria === "entradas" && p.disponible),
-  "platos-fuertes": productosDisponibles.filter(p => p.categoria === "platos-fuertes" && p.disponible),
-  postres: productosDisponibles.filter(p => p.categoria === "postres" && p.disponible),
-  bebidas: productosDisponibles.filter(p => p.categoria === "bebidas" && p.disponible)
+let productosDisponibles = [];
+let menuData = {
+  todos: [],
+  entradas: [],
+  "platos-fuertes": [],
+  postres: [],
+  bebidas: []
 };
+
+async function cargarProductosDesdeAPI() {
+  try {
+    const response = await fetch('http://localhost:5000/api/productos');
+    productosDisponibles = await response.json();
+    
+    menuData = {
+      todos: productosDisponibles.filter(p => p.disponible),
+      entradas: productosDisponibles.filter(p => p.categoria === "entradas" && p.disponible),
+      "platos-fuertes": productosDisponibles.filter(p => p.categoria === "platos-fuertes" && p.disponible),
+      postres: productosDisponibles.filter(p => p.categoria === "postres" && p.disponible),
+      bebidas: productosDisponibles.filter(p => p.categoria === "bebidas" && p.disponible)
+    };
+    
+    cambiarCategoria('todos'); // Recargar vista con datos frescos
+  } catch (error) {
+    console.error('Error al cargar productos:', error);
+    mostrarNotificacion('❌ Error al conectar con el servidor');
+  }
+}
 
 // ============================================
 // ESTADO DEL CARRITO
@@ -304,6 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closeCartBtn) closeCartBtn.addEventListener('click', toggleCarrito);
   if (cartOverlay) cartOverlay.addEventListener('click', toggleCarrito);
 
-  // Cargar menú completo al inicio
-  cambiarCategoria('todos');
+  // Cargar menú desde API al inicio
+  cargarProductosDesdeAPI();
 });

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Tini Restaurant</title>
+    <link rel="stylesheet" href="../CSS/style.css">
+    <style>
+        .admin-container {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .admin-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 1rem;
+        }
+        .admin-tabs button {
+            padding: 0.5rem 1.5rem;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .admin-tabs button.active {
+            background: #ff4757;
+            color: white;
+        }
+        .admin-section {
+            display: none;
+        }
+        .admin-section.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        .btn-action {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+        }
+        .btn-edit { background: #2f3542; color: white; }
+        .btn-delete { background: #ff4757; color: white; }
+        .btn-status { background: #2ed573; color: white; }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 500px;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .order-items {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .status-badge {
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-pendiente { background: #ffeaa7; color: #d63031; }
+        .status-completado { background: #55efc4; color: #00b894; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-top">
+                    <small>Tini Pixel Lab</small>
+                    <div class="brand-logo">
+                        <img src="../Front/img/logo_empresa.png" alt="Tini Pixel Lab Logo" class="brand-logo__img">
+                    </div>
+                </div>
+                <h1>Panel Admin</h1>
+                <p>Gestiona productos y pedidos en tiempo real.</p>
+            </div>
+            <nav class="nav">
+                <a href="TiniRestaurant.html" style="text-decoration: none; color: inherit; display: block; padding: 10px; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; text-align: center;">🏠 Volver al Menú</a>
+                <button onclick="logout()" style="width: 100%; padding: 10px; margin-top: 10px; border: 1px solid #ff4757; border-radius: 8px; background: transparent; color: #ff4757; cursor: pointer; font-weight: bold;">🚪 Cerrar Sesión</button>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <div class="admin-container">
+                <div class="admin-tabs">
+                    <button class="tab-btn active" data-tab="pedidos">📦 Pedidos</button>
+                    <button class="tab-btn" data-tab="productos">🍔 Productos</button>
+                </div>
+
+                <!-- Sección Pedidos -->
+                <section id="pedidos" class="admin-section active">
+                    <div class="section-head">
+                        <h3>Gestión de Pedidos</h3>
+                        <button class="btn primary" onclick="cargarPedidos()">🔄 Actualizar</button>
+                    </div>
+                    <table id="tablaPedidos">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente / Mesa</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaPedidos"></tbody>
+                    </table>
+                </section>
+
+                <!-- Sección Productos -->
+                <section id="productos" class="admin-section">
+                    <div class="section-head">
+                        <h3>Gestión de Productos</h3>
+                        <button class="btn primary" onclick="abrirModalProducto()">➕ Nuevo Producto</button>
+                    </div>
+                    <table id="tablaProductos">
+                        <thead>
+                            <tr>
+                                <th>Imagen</th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Precio</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaProductos"></tbody>
+                    </table>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Producto -->
+    <div id="modalProducto" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Nuevo Producto</h3>
+            <form id="formProducto">
+                <input type="hidden" id="prodId">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" id="prodNombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio</label>
+                    <input type="number" step="0.01" id="prodPrecio" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select id="prodCategoria">
+                        <option value="entradas">Entradas</option>
+                        <option value="platos-fuertes">Platos fuertes</option>
+                        <option value="postres">Postres</option>
+                        <option value="bebidas">Bebidas</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea id="prodDescripcion"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>URL Imagen</label>
+                    <input type="text" id="prodImagen">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="prodDisponible" checked> Disponible
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn secondary" onclick="cerrarModal()">Cancelar</button>
+                    <button type="submit" class="btn primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

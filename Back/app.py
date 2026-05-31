@@ -16,9 +16,88 @@ def get_db_connection():
 @app.route('/api/productos', methods=['GET'])
 def get_productos():
     conn = get_db_connection()
-    productos = conn.execute('SELECT * FROM productos WHERE disponible = 1').fetchall()
+    # If admin=true is passed, get all products including unavailable ones
+    admin = request.args.get('admin') == 'true'
+    if admin:
+        productos = conn.execute('SELECT * FROM productos').fetchall()
+    else:
+        productos = conn.execute('SELECT * FROM productos WHERE disponible = 1').fetchall()
     conn.close()
     return jsonify([dict(row) for row in productos])
+
+@app.route('/api/productos', methods=['POST'])
+def crear_producto():
+    data = request.json
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO productos (nombre, precio, descripcion, imagen, categoria, disponible) VALUES (?, ?, ?, ?, ?, ?)",
+            (data['nombre'], data['precio'], data.get('descripcion', ''), data.get('imagen', ''), data['categoria'], data.get('disponible', 1))
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        return jsonify({"mensaje": "Producto creado", "id": new_id}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/productos/<int:id>', methods=['PUT'])
+def actualizar_producto(id):
+    data = request.json
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE productos SET nombre=?, precio=?, descripcion=?, imagen=?, categoria=?, disponible=? WHERE id=?",
+            (data['nombre'], data['precio'], data.get('descripcion', ''), data.get('imagen', ''), data['categoria'], data.get('disponible', 1), id)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"mensaje": "Producto actualizado"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/productos/<int:id>', methods=['DELETE'])
+def eliminar_producto(id):
+    try:
+        conn = get_db_connection()
+        conn.execute("DELETE FROM productos WHERE id=?", (id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"mensaje": "Producto eliminado"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/pedidos', methods=['GET'])
+def get_pedidos():
+    conn = get_db_connection()
+    pedidos = conn.execute('SELECT * FROM pedidos ORDER BY creado_at DESC').fetchall()
+    result = []
+    for pedido in pedidos:
+        p_dict = dict(pedido)
+        items = conn.execute('''
+            SELECT pi.*, p.nombre 
+            FROM pedido_items pi 
+            JOIN productos p ON pi.producto_id = p.id 
+            WHERE pi.pedido_id = ?
+        ''', (p_dict['id'],)).fetchall()
+        p_dict['items'] = [dict(item) for item in items]
+        result.append(p_dict)
+    conn.close()
+    return jsonify(result)
+
+@app.route('/api/pedidos/<int:id>/estado', methods=['PUT'])
+def actualizar_estado_pedido(id):
+    data = request.json
+    try:
+        conn = get_db_connection()
+        conn.execute("UPDATE pedidos SET estado=? WHERE id=?", (data['estado'], id))
+        conn.commit()
+        conn.close()
+        return jsonify({"mensaje": "Estado de pedido actualizado"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/pedido', methods=['POST'])
 def crear_pedido():
