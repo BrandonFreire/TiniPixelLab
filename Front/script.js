@@ -14,11 +14,11 @@ async function cargarProductosDesdeAPI() {
     productosDisponibles = await response.json();
     
     menuData = {
-      todos: productosDisponibles.filter(p => p.disponible),
-      entradas: productosDisponibles.filter(p => p.categoria === "entradas" && p.disponible),
-      "platos-fuertes": productosDisponibles.filter(p => p.categoria === "platos-fuertes" && p.disponible),
-      postres: productosDisponibles.filter(p => p.categoria === "postres" && p.disponible),
-      bebidas: productosDisponibles.filter(p => p.categoria === "bebidas" && p.disponible)
+      todos: productosDisponibles.filter(productoDisponible),
+      entradas: productosDisponibles.filter(p => p.categoria === "entradas" && productoDisponible(p)),
+      "platos-fuertes": productosDisponibles.filter(p => p.categoria === "platos-fuertes" && productoDisponible(p)),
+      postres: productosDisponibles.filter(p => p.categoria === "postres" && productoDisponible(p)),
+      bebidas: productosDisponibles.filter(p => p.categoria === "bebidas" && productoDisponible(p))
     };
     
     cambiarCategoria('todos');
@@ -30,12 +30,25 @@ async function cargarProductosDesdeAPI() {
 
 let carrito = [];
 
+function productoDisponible(producto) {
+  return Boolean(producto.disponible) && Number(producto.stock) > 0;
+}
+
 function agregarAlCarrito(id) {
   const producto = productosDisponibles.find(p => p.id === id);
   if (!producto) return;
 
+  if (!productoDisponible(producto)) {
+    mostrarNotificacion('Este producto no tiene stock disponible');
+    return;
+  }
+
   const itemExistente = carrito.find(item => item.id === id);
   if (itemExistente) {
+    if (itemExistente.cantidad >= Number(producto.stock)) {
+      mostrarNotificacion(`Solo quedan ${producto.stock} unidades de ${producto.nombre}`);
+      return;
+    }
     itemExistente.cantidad++;
   } else {
     carrito.push({ ...producto, cantidad: 1 });
@@ -48,6 +61,11 @@ function agregarAlCarrito(id) {
 function cambiarCantidad(id, delta) {
   const item = carrito.find(item => item.id === id);
   if (!item) return;
+
+  if (delta > 0 && item.cantidad >= Number(item.stock)) {
+    mostrarNotificacion(`Solo quedan ${item.stock} unidades de ${item.nombre}`);
+    return;
+  }
 
   item.cantidad += delta;
   if (item.cantidad <= 0) {
@@ -97,11 +115,12 @@ function actualizarCarritoUI() {
         <div class="cart-item-info">
           <h5>${item.nombre}</h5>
           <p>$${item.precio.toFixed(2)} x ${item.cantidad}</p>
+          <small>Stock: ${item.stock}</small>
         </div>
         <div class="cart-item-actions">
           <button class="btn-qty" onclick="cambiarCantidad(${item.id}, -1)">-</button>
           <span>${item.cantidad}</span>
-          <button class="btn-qty" onclick="cambiarCantidad(${item.id}, 1)">+</button>
+          <button class="btn-qty" onclick="cambiarCantidad(${item.id}, 1)" ${item.cantidad >= Number(item.stock) ? 'disabled' : ''}>+</button>
           <button class="btn-remove" onclick="eliminarDelCarrito(${item.id})">🗑️</button>
         </div>
       </div>
@@ -156,8 +175,11 @@ async function confirmarPedido() {
       document.getElementById('clienteReferencia').value = '';
       carrito = [];
       actualizarCarritoUI();
+      cargarProductosDesdeAPI();
     } else {
-      mostrarNotificacion('❌ Error al confirmar el pedido');
+      const result = await response.json();
+      mostrarNotificacion(result.error || 'Error al confirmar el pedido');
+      cargarProductosDesdeAPI();
     }
   } catch (error) {
     console.error('Error:', error);
@@ -232,13 +254,14 @@ function renderizarProductos(categoria) {
         <h4>${producto.nombre}</h4>
         <div class="price">$${producto.precio.toFixed(2)}</div>
         <p>${producto.descripcion}</p>
+        <p class="stock-text">Stock disponible: ${producto.stock}</p>
         <button class="btn-add-cart" onclick="agregarAlCarrito(${producto.id})">
           ➕ Agregar al pedido
         </button>
       </div>
       <div class="product-media">
         <img src="${producto.imagen}" alt="${producto.nombre}">
-        <span class="available-badge">✓ Disponible</span>
+        <span class="available-badge">Stock: ${producto.stock}</span>
       </div>
     </article>
   `).join('');

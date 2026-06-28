@@ -169,6 +169,11 @@ body {
   font-weight: bold;
 }
 
+.btn-qty:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .btn-remove {
   background: none;
   border: none;
@@ -560,6 +565,12 @@ body {
   color: var(--muted);
   line-height: 1.6;
   font-size: 13px;
+}
+
+.product-info .stock-text {
+  margin-top: 8px;
+  color: var(--deep);
+  font-weight: bold;
 }
 
 .product-media {

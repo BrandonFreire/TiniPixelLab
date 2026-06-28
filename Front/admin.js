@@ -95,6 +95,7 @@ async function cargarPedidos() {
                             ${opcionesEstado(p.estado)}
                         </select>
                         <button class="btn-action btn-status" onclick="guardarEstadoPedido(${p.id})">Guardar</button>
+                        <button class="btn-action btn-edit" onclick="abrirBitacoraPedido(${p.id})">Bitácora</button>
                     </div>
                 </td>
             </tr>
@@ -129,9 +130,48 @@ async function guardarEstadoPedido(id) {
     }
 }
 
+async function abrirBitacoraPedido(id) {
+    const modal = document.getElementById('modalBitacora');
+    const title = document.getElementById('bitacoraTitle');
+    const body = document.getElementById('bitacoraBody');
+
+    title.textContent = `Bitácora del pedido #${id}`;
+    body.innerHTML = '<tr><td colspan="3" class="table-empty">Cargando bitácora...</td></tr>';
+    modal.style.display = 'flex';
+
+    try {
+        const res = await fetch(`${API_URL}/pedidos/${id}/bitacora`);
+        if (!res.ok) {
+            const result = await res.json();
+            throw new Error(result.error || 'No se pudo cargar la bitácora');
+        }
+
+        const registros = await res.json();
+        if (registros.length === 0) {
+            body.innerHTML = '<tr><td colspan="3" class="table-empty">Este pedido todavía no tiene cambios de estado.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = registros.map(registro => `
+            <tr>
+                <td>${escapeHTML(registro.estado_anterior || '-')}</td>
+                <td>${escapeHTML(registro.estado_nuevo)}</td>
+                <td>${escapeHTML(registro.cambiado_at || '-')}</td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error('Error al cargar bitácora:', err);
+        body.innerHTML = `<tr><td colspan="3" class="table-empty error">${escapeHTML(err.message)}</td></tr>`;
+    }
+}
+
+function cerrarModalBitacora() {
+    document.getElementById('modalBitacora').style.display = 'none';
+}
+
 async function cargarProductos() {
     const lista = document.getElementById('listaProductos');
-    lista.innerHTML = '<tr><td colspan="6" class="table-empty">Cargando productos...</td></tr>';
+    lista.innerHTML = '<tr><td colspan="7" class="table-empty">Cargando productos...</td></tr>';
 
     try {
         const res = await fetch(`${API_URL}/productos?admin=true`);
@@ -139,7 +179,7 @@ async function cargarProductos() {
 
         productosGlobal = await res.json();
         if (productosGlobal.length === 0) {
-            lista.innerHTML = '<tr><td colspan="6" class="table-empty">No hay productos registrados.</td></tr>';
+            lista.innerHTML = '<tr><td colspan="7" class="table-empty">No hay productos registrados.</td></tr>';
             return;
         }
 
@@ -154,7 +194,8 @@ async function cargarProductos() {
                 </td>
                 <td>${escapeHTML(p.categoria)}</td>
                 <td>$${Number(p.precio).toFixed(2)}</td>
-                <td>${p.disponible ? '<span class="available-dot">Disponible</span>' : '<span class="unavailable-dot">No disponible</span>'}</td>
+                <td>${Number(p.stock || 0)}</td>
+                <td>${p.disponible && Number(p.stock) > 0 ? '<span class="available-dot">Disponible</span>' : '<span class="unavailable-dot">No disponible</span>'}</td>
                 <td>
                     <button class="btn-action btn-edit" onclick="abrirModalProducto(${p.id})">Editar</button>
                     <button class="btn-action btn-delete" onclick="eliminarProducto(${p.id})">Eliminar</button>
@@ -163,7 +204,7 @@ async function cargarProductos() {
         `).join('');
     } catch (err) {
         console.error('Error al cargar productos:', err);
-        lista.innerHTML = '<tr><td colspan="6" class="table-empty error">No se pudieron cargar los productos. Verifica que el servidor esté activo.</td></tr>';
+        lista.innerHTML = '<tr><td colspan="7" class="table-empty error">No se pudieron cargar los productos. Verifica que el servidor esté activo.</td></tr>';
     }
 }
 
@@ -174,6 +215,7 @@ function abrirModalProducto(id = null) {
 
     form.reset();
     document.getElementById('prodId').value = id || '';
+    document.getElementById('prodStock').value = 0;
     document.getElementById('prodDisponible').checked = true;
 
     if (id) {
@@ -184,6 +226,7 @@ function abrirModalProducto(id = null) {
         document.getElementById('prodNombre').value = producto.nombre;
         document.getElementById('prodPrecio').value = producto.precio;
         document.getElementById('prodCategoria').value = producto.categoria;
+        document.getElementById('prodStock').value = producto.stock || 0;
         document.getElementById('prodDescripcion').value = producto.descripcion || '';
         document.getElementById('prodImagen').value = producto.imagen || '';
         document.getElementById('prodDisponible').checked = Boolean(producto.disponible);
@@ -206,6 +249,7 @@ document.getElementById('formProducto').addEventListener('submit', async (e) => 
         nombre: document.getElementById('prodNombre').value,
         precio: Number(document.getElementById('prodPrecio').value),
         categoria: document.getElementById('prodCategoria').value,
+        stock: Number(document.getElementById('prodStock').value),
         descripcion: document.getElementById('prodDescripcion').value,
         imagen: document.getElementById('prodImagen').value,
         disponible: document.getElementById('prodDisponible').checked ? 1 : 0
@@ -255,7 +299,9 @@ async function eliminarProducto(id) {
 
 window.addEventListener('click', (event) => {
     const modal = document.getElementById('modalProducto');
+    const bitacoraModal = document.getElementById('modalBitacora');
     if (event.target === modal) cerrarModal();
+    if (event.target === bitacoraModal) cerrarModalBitacora();
 });
 
 cargarPedidos();

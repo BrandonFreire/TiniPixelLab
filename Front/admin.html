@@ -351,6 +351,7 @@
                                     <th>Nombre</th>
                                     <th>Categoría</th>
                                     <th>Precio</th>
+                                    <th>Stock</th>
                                     <th>Estado</th>
                                     <th>Acciones</th>
                                 </tr>
@@ -375,6 +376,10 @@
                 <div class="form-group">
                     <label for="prodPrecio">Precio</label>
                     <input type="number" step="0.01" min="0.01" id="prodPrecio" required>
+                </div>
+                <div class="form-group">
+                    <label for="prodStock">Stock disponible</label>
+                    <input type="number" step="1" min="0" id="prodStock" required>
                 </div>
                 <div class="form-group">
                     <label for="prodCategoria">Categoría</label>
@@ -404,6 +409,27 @@
                     <button type="submit" class="btn primary">Guardar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="modalBitacora" class="modal">
+        <div class="modal-content">
+            <h3 id="bitacoraTitle">Bitácora del pedido</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Estado anterior</th>
+                            <th>Estado nuevo</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bitacoraBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn secondary" onclick="cerrarModalBitacora()">Cerrar</button>
+            </div>
         </div>
     </div>
 

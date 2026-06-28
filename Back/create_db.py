@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS productos (
     descripcion TEXT,
     imagen TEXT,
     categoria TEXT,
-    disponible INTEGER NOT NULL DEFAULT 1
+    disponible INTEGER NOT NULL DEFAULT 1,
+    stock INTEGER NOT NULL DEFAULT 10
 );
 
 CREATE TABLE IF NOT EXISTS pedidos (
@@ -35,24 +36,33 @@ CREATE TABLE IF NOT EXISTS pedido_items (
     FOREIGN KEY(pedido_id) REFERENCES pedidos(id),
     FOREIGN KEY(producto_id) REFERENCES productos(id)
 );
+
+CREATE TABLE IF NOT EXISTS pedido_estado_bitacora (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pedido_id INTEGER NOT NULL,
+    estado_anterior TEXT,
+    estado_nuevo TEXT NOT NULL,
+    cambiado_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY(pedido_id) REFERENCES pedidos(id)
+);
 """
 
 SAMPLE_PRODUCTS = [
-    (1, "Bruschetta italiana", 5.90, "Pan tostado con tomate, albahaca y queso fresco.", "https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?auto=format&fit=crop&w=800&q=80", "entradas", 1),
-    (2, "Nachos supremos", 6.20, "Nachos con queso, salsa de la casa y jalapeños.", "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?auto=format&fit=crop&w=800&q=80", "entradas", 1),
-    (3, "Alitas BBQ", 7.10, "Alitas bañadas en salsa BBQ con toque ahumado.", "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=800&q=80", "entradas", 1),
-    (4, "Lomo en salsa", 11.90, "Lomo jugoso acompañado de papas y vegetales.", "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=800&q=80", "platos-fuertes", 1),
-    (5, "Hamburguesa especial", 8.40, "Hamburguesa artesanal con queso, tocino y papas.", "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80", "platos-fuertes", 1),
-    (6, "Pasta cremosa", 9.50, "Pasta artesanal con salsa cremosa y toque de hierbas.", "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=800&q=80", "platos-fuertes", 1),
-    (7, "Pescado a la plancha", 10.90, "Filete de pescado con ensalada fresca.", "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=800&q=80", "platos-fuertes", 1),
-    (8, "Cheesecake de frutos rojos", 4.80, "Postre suave y fresco con cobertura de frutos rojos.", "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=800&q=80", "postres", 1),
-    (9, "Brownie tibio", 3.95, "Brownie de chocolate con textura suave y centro húmedo.", "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=800&q=80", "postres", 1),
-    (10, "Helado artesanal", 2.80, "Helado servido en copa con toppings de fruta.", "https://images.unsplash.com/photo-1560008581-09826d1de69e?auto=format&fit=crop&w=800&q=80", "postres", 1),
-    (11, "Tarta de frutos rojos", 4.50, "Base crujiente con crema pastelera y frutos rojos.", "https://images.unsplash.com/photo-1464306076886-da185f6a9d05?auto=format&fit=crop&w=800&q=80", "postres", 1),
-    (12, "Limonada de mora", 2.75, "Bebida fría de mora con un toque cítrico y hielo.", "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80", "bebidas", 1),
-    (13, "Milkshake de fresa", 3.70, "Batido espeso de fresa con crema y salsa dulce.", "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80", "bebidas", 1),
-    (14, "Café americano", 2.00, "Café de origen colombiano recién preparado.", "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80", "bebidas", 1),
-    (15, "Jugo de naranja natural", 2.50, "Jugo recién exprimido sin conservantes.", "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=800&q=80", "bebidas", 1),
+    (1, "Bruschetta italiana", 5.90, "Pan tostado con tomate, albahaca y queso fresco.", "https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?auto=format&fit=crop&w=800&q=80", "entradas", 1, 12),
+    (2, "Nachos supremos", 6.20, "Nachos con queso, salsa de la casa y jalapeños.", "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?auto=format&fit=crop&w=800&q=80", "entradas", 1, 10),
+    (3, "Alitas BBQ", 7.10, "Alitas bañadas en salsa BBQ con toque ahumado.", "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=800&q=80", "entradas", 1, 8),
+    (4, "Lomo en salsa", 11.90, "Lomo jugoso acompañado de papas y vegetales.", "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=800&q=80", "platos-fuertes", 1, 7),
+    (5, "Hamburguesa especial", 8.40, "Hamburguesa artesanal con queso, tocino y papas.", "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80", "platos-fuertes", 1, 15),
+    (6, "Pasta cremosa", 9.50, "Pasta artesanal con salsa cremosa y toque de hierbas.", "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=800&q=80", "platos-fuertes", 1, 9),
+    (7, "Pescado a la plancha", 10.90, "Filete de pescado con ensalada fresca.", "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=800&q=80", "platos-fuertes", 1, 6),
+    (8, "Cheesecake de frutos rojos", 4.80, "Postre suave y fresco con cobertura de frutos rojos.", "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=800&q=80", "postres", 1, 10),
+    (9, "Brownie tibio", 3.95, "Brownie de chocolate con textura suave y centro húmedo.", "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=800&q=80", "postres", 1, 12),
+    (10, "Helado artesanal", 2.80, "Helado servido en copa con toppings de fruta.", "https://images.unsplash.com/photo-1560008581-09826d1de69e?auto=format&fit=crop&w=800&q=80", "postres", 1, 20),
+    (11, "Tarta de frutos rojos", 4.50, "Base crujiente con crema pastelera y frutos rojos.", "https://images.unsplash.com/photo-1464306076886-da185f6a9d05?auto=format&fit=crop&w=800&q=80", "postres", 1, 8),
+    (12, "Limonada de mora", 2.75, "Bebida fría de mora con un toque cítrico y hielo.", "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80", "bebidas", 1, 25),
+    (13, "Milkshake de fresa", 3.70, "Batido espeso de fresa con crema y salsa dulce.", "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80", "bebidas", 1, 14),
+    (14, "Café americano", 2.00, "Café de origen colombiano recién preparado.", "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80", "bebidas", 1, 30),
+    (15, "Jugo de naranja natural", 2.50, "Jugo recién exprimido sin conservantes.", "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=800&q=80", "bebidas", 1, 18),
 ]
 
 SAMPLE_ORDERS = [
@@ -91,22 +101,41 @@ PEDIDOS_EXTRA_COLUMNS = {
     "referencia": "TEXT",
 }
 
+PRODUCTOS_EXTRA_COLUMNS = {
+    "stock": "INTEGER NOT NULL DEFAULT 10",
+}
+
 
 def migrate_db(conn):
     cur = conn.cursor()
-    existing_columns = {
+    pedido_columns = {
         row[1] for row in cur.execute("PRAGMA table_info(pedidos)").fetchall()
+    }
+    producto_columns = {
+        row[1] for row in cur.execute("PRAGMA table_info(productos)").fetchall()
     }
 
     for column, column_type in PEDIDOS_EXTRA_COLUMNS.items():
-        if column not in existing_columns:
+        if column not in pedido_columns:
             cur.execute(f"ALTER TABLE pedidos ADD COLUMN {column} {column_type}")
+
+    for column, column_type in PRODUCTOS_EXTRA_COLUMNS.items():
+        if column not in producto_columns:
+            cur.execute(f"ALTER TABLE productos ADD COLUMN {column} {column_type}")
 
     cur.execute(
         """
         UPDATE pedidos
         SET estado = 'Completado'
         WHERE estado NOT IN ('Pendiente', 'En preparación', 'Completado', 'Entregado', 'Cancelado')
+        """
+    )
+
+    cur.execute(
+        """
+        UPDATE productos
+        SET disponible = 0
+        WHERE stock <= 0
         """
     )
 
@@ -127,8 +156,8 @@ def seed_products(products=SAMPLE_PRODUCTS):
     cur.executemany(
         """
         INSERT OR REPLACE INTO productos
-        (id, nombre, precio, descripcion, imagen, categoria, disponible)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (id, nombre, precio, descripcion, imagen, categoria, disponible, stock)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         products,
     )

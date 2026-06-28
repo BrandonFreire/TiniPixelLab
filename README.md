@@ -6,12 +6,14 @@ Aplicación web para un restaurante pequeño desarrollada por el equipo **Tini P
 
 - Menú dinámico con categorías: entradas, platos fuertes, postres y bebidas.
 - Carrito lateral con cantidades, total y confirmación de pedido.
+- Control de stock por producto con descuento automático al confirmar pedidos.
 - Datos básicos de entrega para pedidos a domicilio.
 - Consulta de estado por número de pedido.
 - Persistencia local con SQLite.
 - Panel de administrador con:
   - listado de pedidos recibidos;
   - cambio y guardado del estado del pedido;
+  - consulta de bitácora de cambios de estado;
   - listado, creación, edición y eliminación de productos.
 - Datos iniciales de productos y pedidos de prueba para demostración.
 
@@ -79,6 +81,7 @@ http://localhost:5000
 - `GET /api/pedidos`: listar pedidos recibidos.
 - `GET /api/pedidos/<id>`: consultar el estado y detalle de un pedido.
 - `PUT /api/pedidos/<id>/estado`: actualizar estado de un pedido.
+- `GET /api/pedidos/<id>/bitacora`: consultar la bitácora de cambios de estado.
 
 Estados disponibles:
 

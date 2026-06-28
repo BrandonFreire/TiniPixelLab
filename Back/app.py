@@ -35,6 +35,8 @@ def inicializar_datos_si_hacen_falta():
 def producto_desde_request(data):
     campos_obligatorios = ("nombre", "precio", "categoria")
     faltantes = [campo for campo in campos_obligatorios if not data.get(campo)]
+    if "stock" not in data:
+        faltantes.append("stock")
     if faltantes:
         return None, f"Faltan campos obligatorios: {', '.join(faltantes)}"
 
@@ -46,6 +48,14 @@ def producto_desde_request(data):
     if precio <= 0:
         return None, "El precio debe ser mayor a 0"
 
+    try:
+        stock = int(data["stock"])
+    except (TypeError, ValueError):
+        return None, "El stock debe ser un número entero válido"
+
+    if stock < 0:
+        return None, "El stock no puede ser negativo"
+
     return {
         "nombre": data["nombre"].strip(),
         "precio": precio,
@@ -53,7 +63,21 @@ def producto_desde_request(data):
         "imagen": data.get("imagen", "").strip(),
         "categoria": data["categoria"],
         "disponible": 1 if data.get("disponible", 1) else 0,
+        "stock": stock,
     }, None
+
+
+def obtener_bitacora_pedido(conn, pedido_id):
+    registros = conn.execute(
+        """
+        SELECT id, pedido_id, estado_anterior, estado_nuevo, cambiado_at
+        FROM pedido_estado_bitacora
+        WHERE pedido_id = ?
+        ORDER BY cambiado_at ASC, id ASC
+        """,
+        (pedido_id,),
+    ).fetchall()
+    return [dict(registro) for registro in registros]
 
 
 def obtener_pedido_por_id(conn, pedido_id):
@@ -78,6 +102,7 @@ def obtener_pedido_por_id(conn, pedido_id):
         (pedido_id,),
     ).fetchall()
     pedido_dict["items"] = [dict(item) for item in items]
+    pedido_dict["bitacora"] = obtener_bitacora_pedido(conn, pedido_id)
     return pedido_dict
 
 
@@ -92,7 +117,7 @@ def get_productos():
     admin = request.args.get("admin") == "true"
     consulta = "SELECT * FROM productos ORDER BY categoria, nombre"
     if not admin:
-        consulta = "SELECT * FROM productos WHERE disponible = 1 ORDER BY categoria, nombre"
+        consulta = "SELECT * FROM productos WHERE disponible = 1 AND stock > 0 ORDER BY categoria, nombre"
     productos = conn.execute(consulta).fetchall()
     conn.close()
     return jsonify([dict(row) for row in productos])
@@ -109,8 +134,8 @@ def crear_producto():
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO productos (nombre, precio, descripcion, imagen, categoria, disponible)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO productos (nombre, precio, descripcion, imagen, categoria, disponible, stock)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             producto["nombre"],
@@ -119,6 +144,7 @@ def crear_producto():
             producto["imagen"],
             producto["categoria"],
             producto["disponible"],
+            producto["stock"],
         ),
     )
     conn.commit()
@@ -139,7 +165,7 @@ def actualizar_producto(producto_id):
     cur.execute(
         """
         UPDATE productos
-        SET nombre = ?, precio = ?, descripcion = ?, imagen = ?, categoria = ?, disponible = ?
+        SET nombre = ?, precio = ?, descripcion = ?, imagen = ?, categoria = ?, disponible = ?, stock = ?
         WHERE id = ?
         """,
         (
@@ -149,6 +175,7 @@ def actualizar_producto(producto_id):
             producto["imagen"],
             producto["categoria"],
             producto["disponible"],
+            producto["stock"],
             producto_id,
         ),
     )
@@ -199,6 +226,19 @@ def get_pedido(pedido_id):
     return jsonify(pedido)
 
 
+@app.route("/api/pedidos/<int:pedido_id>/bitacora", methods=["GET"])
+def get_bitacora_pedido(pedido_id):
+    conn = get_db_connection()
+    pedido = conn.execute("SELECT id FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if not pedido:
+        conn.close()
+        return jsonify({"error": "Pedido no encontrado"}), 404
+
+    bitacora = obtener_bitacora_pedido(conn, pedido_id)
+    conn.close()
+    return jsonify(bitacora)
+
+
 @app.route("/api/pedidos/<int:pedido_id>/estado", methods=["PUT"])
 def actualizar_estado_pedido(pedido_id):
     data = request.get_json(silent=True) or {}
@@ -209,13 +249,26 @@ def actualizar_estado_pedido(pedido_id):
 
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (nuevo_estado, pedido_id))
-    conn.commit()
-    actualizado = cur.rowcount
-    conn.close()
-
-    if actualizado == 0:
+    pedido = cur.execute("SELECT estado FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if not pedido:
+        conn.close()
         return jsonify({"error": "Pedido no encontrado"}), 404
+
+    estado_anterior = pedido["estado"]
+    if estado_anterior == nuevo_estado:
+        conn.close()
+        return jsonify({"mensaje": "El pedido ya tiene ese estado", "estado": nuevo_estado})
+
+    cur.execute("UPDATE pedidos SET estado = ? WHERE id = ?", (nuevo_estado, pedido_id))
+    cur.execute(
+        """
+        INSERT INTO pedido_estado_bitacora (pedido_id, estado_anterior, estado_nuevo)
+        VALUES (?, ?, ?)
+        """,
+        (pedido_id, estado_anterior, nuevo_estado),
+    )
+    conn.commit()
+    conn.close()
     return jsonify({"mensaje": "Estado de pedido actualizado", "estado": nuevo_estado})
 
 
@@ -234,14 +287,58 @@ def crear_pedido():
     if not cliente_nombre or not telefono or not direccion:
         return jsonify({"error": "Nombre, teléfono y dirección son obligatorios"}), 400
 
-    try:
-        total = float(data["total"])
-    except (KeyError, TypeError, ValueError):
-        return jsonify({"error": "Total inválido"}), 400
-
     conn = get_db_connection()
     cur = conn.cursor()
 
+    cantidades_por_producto = {}
+    for item in data["items"]:
+        try:
+            producto_id = int(item["id"])
+            cantidad = int(item["cantidad"])
+        except (KeyError, TypeError, ValueError):
+            conn.close()
+            return jsonify({"error": "Los productos del pedido no son válidos"}), 400
+
+        if cantidad <= 0:
+            conn.close()
+            return jsonify({"error": "La cantidad de cada producto debe ser mayor a 0"}), 400
+
+        cantidades_por_producto[producto_id] = cantidades_por_producto.get(producto_id, 0) + cantidad
+
+    items_validados = []
+    for producto_id, cantidad in cantidades_por_producto.items():
+        producto = cur.execute(
+            """
+            SELECT id, nombre, precio, disponible, stock
+            FROM productos
+            WHERE id = ?
+            """,
+            (producto_id,),
+        ).fetchone()
+
+        if not producto:
+            conn.close()
+            return jsonify({"error": "Uno de los productos no existe"}), 400
+
+        if not producto["disponible"] or producto["stock"] <= 0:
+            conn.close()
+            return jsonify({"error": f"{producto['nombre']} no está disponible"}), 400
+
+        if cantidad > producto["stock"]:
+            conn.close()
+            return jsonify({"error": f"Solo quedan {producto['stock']} unidades de {producto['nombre']}"}), 400
+
+        items_validados.append(
+            {
+                "id": producto["id"],
+                "cantidad": cantidad,
+                "precio": float(producto["precio"]),
+            }
+        )
+
+    total = sum(item["cantidad"] * item["precio"] for item in items_validados)
+
+    # Se valida el stock antes de guardar el pedido y descontar unidades.
     cur.execute(
         """
         INSERT INTO pedidos
@@ -252,13 +349,22 @@ def crear_pedido():
     )
     pedido_id = cur.lastrowid
 
-    for item in data["items"]:
+    for item in items_validados:
         cur.execute(
             """
             INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario)
             VALUES (?, ?, ?, ?)
             """,
             (pedido_id, item["id"], item["cantidad"], item["precio"]),
+        )
+        cur.execute(
+            """
+            UPDATE productos
+            SET stock = stock - ?,
+                disponible = CASE WHEN stock - ? <= 0 THEN 0 ELSE disponible END
+            WHERE id = ?
+            """,
+            (item["cantidad"], item["cantidad"], item["id"]),
         )
 
     conn.commit()
